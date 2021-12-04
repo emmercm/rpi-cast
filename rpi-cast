@@ -53,11 +53,9 @@ install() {
 	sudo apt -y install "$@" > /dev/null
 }
 
-# go get alias
-go_install() {
-	[[ ! -x "$(command -v go)" ]] && install golang-go
-	echo "Installing $1 ..."
-	go get -u "$1"
+# List all Chromecast devices
+chromecast_ls() {
+	go-chromecast ls | ansi2txt | grep --invert-match '^error'
 }
 
 DEVICE_KEYWORDS="All
@@ -74,8 +72,8 @@ device_match() {
 		done <<< "$1"
 	done
 }
-get_device() {
-	CHROMECAST_LS=$(go-chromecast ls | ansi2txt | grep --invert-match '^error')
+chromecast_preferred() {
+	CHROMECAST_LS=$(chromecast_ls)
 	CHROMECAST_GROUPS=$(echo "${CHROMECAST_LS}" | grep "Google Cast Group" | sed 's/.*device_name="\([^"]\+\)".*/\1/g')
 	CHROMECAST_DEVICES=$(echo "${CHROMECAST_LS}" | grep --invert-match "Google Cast Group" | sed 's/.*device_name="\([^"]\+\)".*/\1/g')
 
@@ -132,8 +130,9 @@ start() {
 	loopback Mkchromecast
 	echo "Waiting for cast to start ..."
 	while ! is_playing; do
-		sleep 1s
+		sleep 1
 	done
+	echo "Cast started"
 	echo ""
 }
 
@@ -167,18 +166,34 @@ hifiberry
 [[ ! -x "$(command -v rec)" ]] && install sox
 [[ ! -x "$(command -v mkchromecast)" ]] && install mkchromecast
 [[ ! -x "$(command -v ffmpeg)" ]] && install ffmpeg
-export GOPATH=$(go env GOPATH)
-export GOPATH=${GOPATH:-$(find /home type -d -name "go" 2> /dev/null | head -1)}
-PATH=$PATH:${GOPATH}/bin
-[[ ! -x "$(command -v go-chromecast)" ]] && go_install github.com/vishen/go-chromecast
+if [[ ! -x "$(command -v go-chromecast)" ]]; then
+	DIR=$(mktemp -d)
+	curl --silent https://api.github.com/repos/vishen/go-chromecast/releases/latest | grep 'browser_download_url' | grep 'armv7' | cut -d ':' -f 2,3 | tr -d \" | xargs -n1 wget -qO - | tar -xzf - -C "${DIR}"
+	sudo install "${DIR}/go-chromecast" /usr/bin/
+fi
 [[ ! -x "$(command -v ansi2txt)" ]] && install colorized-logs
 
 ##### Main program #####
 
-DEVICE_NAME=${DEVICE_NAME:-$(get_device)}
+PA_USER=$(ps -Afw | grep "$(which pulseaudio)" | head -1 | awk '{print $1}')
+if [[ "${PA_USER}" != "$(whoami)" ]]; then
+	echo "This script needs to be run by '${PA_USER}'"
+	exit 1
+fi
 
 loopback "${LOOPBACK_SINK}"
 echo ""
+
+if [[ "$(chromecast_ls)" == "" ]]; then
+	echo "Waiting until at least one Chromecast found ..."
+	while [[ "$(chromecast_ls)" == "" ]]; do
+		sleep 1
+	done
+	echo "$(chromecast_ls | wc -l | xargs) Chromecast(s) found"
+	echo ""
+fi
+
+DEVICE_NAME=${DEVICE_NAME:-$(chromecast_preferred)}
 
 stop
 while true; do
