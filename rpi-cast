@@ -48,7 +48,7 @@ update() {
 # apt install alias
 install() {
 	update
-	echo "Installing $@ ..."
+	echo "Installing $* ..."
 	sudo apt -y install "$@" > /dev/null
 }
 
@@ -136,7 +136,7 @@ stop() {
 
 # Return if the Chromecast is playing
 is_playing() {
-	go-chromecast status --device-name "${DEVICE_NAME}" | egrep "PLAYING|BUFFERING" &> /dev/null
+	go-chromecast status --device-name "${DEVICE_NAME}" | grep -E "PLAYING|BUFFERING" &> /dev/null
 	return $?
 }
 
