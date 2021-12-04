@@ -38,15 +38,15 @@ install() {
 }
 
 loopback() {
-	printf "Finding $1 PulseAudio sink ... "
+	printf "Finding %s PulseAudio sink ... " "$1"
 	SINK=""
 	while [[ "${SINK}" == "" ]]; do
 		SINK=$(pactl list short sinks | (grep "$1" || true) | awk '{print $1}')
 	done
 	echo "#${SINK}"
-	if [[ "$(pactl list short modules | grep module-loopback | grep ${SINK})" == "" ]]; then
-		printf "Adding loopback for sink #${SINK} ... "
-		pactl load-module module-loopback latency_msec=1 sink=${SINK} > /dev/null
+	if [[ "$(pactl list short modules | grep module-loopback | grep "${SINK}")" == "" ]]; then
+		printf "Adding loopback for sink #%s ... " "${SINK}"
+		pactl load-module module-loopback latency_msec=1 sink="${SINK}" > /dev/null
 		echo "done"
 	fi
 }
