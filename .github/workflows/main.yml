@@ -1,9 +1,6 @@
-on:
-  push:
-    branches:
-      - master
+name: CI/CD
 
-name: 'Trigger: Push action'
+on: push
 
 jobs:
   shellcheck:
