@@ -3,6 +3,8 @@ set -euo pipefail
 
 trap 'jobs -p | xargs kill' EXIT
 
+# Set up HiFiBerry devices
+# @link https://www.hifiberry.com/docs/software/configuring-linux-3-18-x/
 hifiberry() {
 	sudo sed -i 's/^dtparam=audio=on/# dtparam=audio=on/' /boot/config.txt
 	sudo sed -i '/^dtoverlay=vc4-kms-v3d/d' /boot/config.txt
@@ -24,6 +26,7 @@ hifiberry() {
 	fi
 }
 
+# apt update singleton alias
 UPDATED=false
 update() {
 	if [[ "${UPDATED}" == "false" ]]; then
@@ -32,11 +35,14 @@ update() {
 	fi
 }
 
+# apt install alias
 install() {
 	update
 	sudo apt -y install "$@"
 }
 
+# Add a PulseAudio loopback if it doesn't already eixst
+# @param {string} $1 PulseAudio sink name
 loopback() {
 	printf "Finding %s PulseAudio sink ... " "$1"
 	SINK=""
@@ -51,12 +57,14 @@ loopback() {
 	fi
 }
 
+# Start mkchromecast and add a loopback for it
 start() {
 	echo "Starting mkchromecast ..."
 	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 -n 'Entire Apartment' &> /dev/null &
 	loopback Mkchromecast
 }
 
+# Stop mkchromecast if it's running
 stop() {
 	if pgrep mkchromecast &> /dev/null; then
 		echo "Stopping mkchromecast ..."
@@ -64,6 +72,8 @@ stop() {
 	fi
 }
 
+# Get the peak input volume
+# @param {number} $1 Seconds to record to determine peak volume
 volume() {
 	rec -n stat trim 0 "${1:-1}" 2>&1 | grep 'Maximum amplitude' | cut -d ':' -f 2 | xargs
 }
