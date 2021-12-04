@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+trap 'jobs -p | xargs kill' EXIT
+
+hifiberry() {
+	sudo sed -i 's/^dtparam=audio=on/# dtparam=audio=on/' /boot/config.txt
+	sudo sed -i '/^dtoverlay=vc4-kms-v3d/d' /boot/config.txt
+	sudo sed -i '1 i\dtoverlay=vc4-kms-v3d,audio=off' /boot/config.txt
+
+	sudo sed -i '/^dtoverlay=hifiberry/d' /boot/config.txt
+	sudo sed -i '1 i\dtoverlay=hifiberry-dacplusadcpro' /boot/config.txt
+
+	sudo tee /etc/asound.conf > /dev/null <<- EOF
+	pcm.!default {
+	  type hw card 0
+	}
+	ctl.!default {
+	  type hw card 0
+	}
+	EOF
+	if [[ -f ~/.asound.conf ]]; then
+		rm ~/.asound.conf
+	fi
+}
+
+UPDATED=false
+update() {
+	if [[ "${UPDATED}" == "false" ]]; then
+		sudo apt update || return 0
+		UPDATED=true
+	fi
+}
+
+install() {
+	update
+	sudo apt -y install "$@"
+}
+
+loopback() {
+	printf "Finding $1 PulseAudio sink ... "
+	SINK=""
+	while [[ "${SINK}" == "" ]]; do
+		SINK=$(pactl list short sinks | (grep "$1" || true) | awk '{print $1}')
+	done
+	echo "#${SINK}"
+	if [[ "$(pactl list short modules | grep module-loopback | grep ${SINK})" == "" ]]; then
+		printf "Adding loopback for sink #${SINK} ... "
+		pactl load-module module-loopback latency_msec=1 sink=${SINK} > /dev/null
+		echo "done"
+	fi
+}
+
+start() {
+	echo "Starting mkchromecast ..."
+	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 -n 'Entire Apartment' &> /dev/null &
+	loopback Mkchromecast
+}
+
+stop() {
+	if pgrep mkchromecast &> /dev/null; then
+		echo "Stopping mkchromecast ..."
+		killall mkchromecast &> /dev/null
+	fi
+}
+
+volume() {
+	rec -n stat trim 0 ${1:-1} 2>&1 | grep 'Maximum amplitude' | cut -d ':' -f 2 | xargs
+}
+
+
+hifiberry
+
+if [[ ! -x "$(command -v mkchromecast)" ]]; then
+	install mkchromecast
+fi
+if [[ ! -x "$(command -v ffmpeg)" ]]; then
+	install ffmpeg
+fi
+
+loopback alsa_output
+
+stop
+while true; do
+	echo "Waiting for input ..."
+	while (( $(echo "$(volume 3) < 0.01" | bc -l) )); do
+		sleep 1
+	done
+
+	start
+
+	while (( $(echo "$(volume 10) >= 0.01" | bc -l) )); do
+		sleep 1
+	done
+	echo "Input stopped"
+	stop
+done
