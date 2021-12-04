@@ -47,7 +47,7 @@ update() {
 }
 
 # apt install alias
-install() {
+apt_install() {
 	update
 	echo "Installing $* ..."
 	sudo apt -y install "$@" > /dev/null
@@ -162,20 +162,20 @@ volume() {
 
 hifiberry
 
-[[ ! -x "$(command -v pactl)" ]] && install pulseaudio-utils
-[[ ! -x "$(command -v rec)" ]] && install sox
-[[ ! -x "$(command -v mkchromecast)" ]] && install mkchromecast
-[[ ! -x "$(command -v ffmpeg)" ]] && install ffmpeg
+[[ ! -x "$(command -v pactl)" ]] && apt_install pulseaudio-utils
+[[ ! -x "$(command -v rec)" ]] && apt_install sox
+[[ ! -x "$(command -v mkchromecast)" ]] && apt_install mkchromecast
+[[ ! -x "$(command -v ffmpeg)" ]] && apt_install ffmpeg
 if [[ ! -x "$(command -v go-chromecast)" ]]; then
 	DIR=$(mktemp -d)
 	curl --silent https://api.github.com/repos/vishen/go-chromecast/releases/latest | grep 'browser_download_url' | grep 'armv7' | cut -d ':' -f 2,3 | tr -d \" | xargs -n1 wget -qO - | tar -xzf - -C "${DIR}"
 	sudo install "${DIR}/go-chromecast" /usr/bin/
 fi
-[[ ! -x "$(command -v ansi2txt)" ]] && install colorized-logs
+[[ ! -x "$(command -v ansi2txt)" ]] && apt_install colorized-logs
 
 ##### Main program #####
 
-PA_USER=$(ps -Afw | grep "$(which pulseaudio)" | head -1 | awk '{print $1}')
+PA_USER=$(pgrep -af "$(which pulseaudio)" | head -1 | awk '{print $1}')
 if [[ "${PA_USER}" != "$(whoami)" ]]; then
 	echo "This script needs to be run by '${PA_USER}'"
 	exit 1
