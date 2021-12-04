@@ -5,7 +5,8 @@ trap 'jobs -p | xargs kill' EXIT
 
 DEVICE_NAME=${DEVICE_NAME:-}
 LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
-VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.01}
+VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
+SILENCE_TIMEOUT=${SILENCE_TIMEOUT:-300}
 HIFIBERRY_OVERLAY=${HIFIBERRY_OVERLAY:-}
 
 # Set up HiFiBerry devices
@@ -50,6 +51,13 @@ install() {
 	update
 	echo "Installing $* ..."
 	sudo apt -y install "$@" > /dev/null
+}
+
+# go get alias
+go_install() {
+	[[ ! -x "$(command -v go)" ]] && install golang-go
+	echo "Installing $1 ..."
+	go get -u "$1"
 }
 
 DEVICE_KEYWORDS="All
@@ -115,7 +123,6 @@ loopback() {
 		pactl load-module module-loopback latency_msec=1 sink="${SINK}" > /dev/null
 		echo "done"
 	fi
-	echo ""
 }
 
 # Start mkchromecast and add a loopback for it
@@ -123,6 +130,11 @@ start() {
 	echo "Casting to '${DEVICE_NAME}' ..."
 	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 ${DEVICE_NAME:+-n "${DEVICE_NAME}"} &> /dev/null &
 	loopback Mkchromecast
+	echo "Waiting for cast to start ..."
+	while ! is_playing; do
+		sleep 1s
+	done
+	echo ""
 }
 
 # Stop mkchromecast if it's running
@@ -155,9 +167,10 @@ hifiberry
 [[ ! -x "$(command -v rec)" ]] && install sox
 [[ ! -x "$(command -v mkchromecast)" ]] && install mkchromecast
 [[ ! -x "$(command -v ffmpeg)" ]] && install ffmpeg
-[[ ! -x "$(command -v go)" ]] && install golang-go
-PATH=$PATH:$(go env GOPATH)/bin
-[[ ! -x "$(command -v go-chromecast)" ]] && go get -u github.com/vishen/go-chromecast
+export GOPATH=$(go env GOPATH)
+export GOPATH=${GOPATH:-$(find /home type -d -name "go" 2> /dev/null | head -1)}
+PATH=$PATH:${GOPATH}/bin
+[[ ! -x "$(command -v go-chromecast)" ]] && go_install github.com/vishen/go-chromecast
 [[ ! -x "$(command -v ansi2txt)" ]] && install colorized-logs
 
 ##### Main program #####
@@ -165,6 +178,7 @@ PATH=$PATH:$(go env GOPATH)/bin
 DEVICE_NAME=${DEVICE_NAME:-$(get_device)}
 
 loopback "${LOOPBACK_SINK}"
+echo ""
 
 stop
 while true; do
@@ -182,7 +196,7 @@ while true; do
 		else
 			SILENCE_DURATION=0
 		fi
-		if [[ ${SILENCE_DURATION} -ge 60 ]]; then
+		if [[ ${SILENCE_DURATION} -ge ${SILENCE_TIMEOUT} ]]; then
 			echo "Input stopped"
 			break
 		fi
