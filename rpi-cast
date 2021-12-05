@@ -59,7 +59,7 @@ apt_install() {
 
 # List all Chromecast devices
 chromecast_ls() {
-	go-chromecast ls | ansi2txt | grep --invert-match '^error'
+	go-chromecast ls --dns-timeout 5 | ansi2txt | grep --invert-match '^error'
 }
 
 DEVICE_KEYWORDS="All
@@ -116,7 +116,8 @@ loopback() {
 	printf "Finding '%s' PulseAudio sink ... " "$1"
 	SINK=""
 	LOOP_TIMEOUT=$((SECONDS+60))
-	while [[ "${SINK}" == "" && ${SECONDS} -lt ${LOOP_TIMEOUT} ]]; do
+	while [[ "${SINK}" == "" ]]; do
+		[[ ${SECONDS} -ge ${LOOP_TIMEOUT} ]] && break
 		SINK=$(pactl list short sinks | (grep "$1" || true) | head -1 | awk '{print $1}')
 	done
 	echo "#${SINK}"
@@ -135,7 +136,12 @@ start() {
 	loopback Mkchromecast
 	echo "Waiting for cast to start ..."
 	LOOP_TIMEOUT=$((SECONDS+60))
-	while [[ ! is_playing && ${SECONDS} -lt ${LOOP_TIMEOUT} ]]; do
+	while ! is_playing; do
+		if [[ ${SECONDS} -ge ${LOOP_TIMEOUT} ]]; then
+			echo "Waiting for cast timed out"
+			echo ""
+			return 1
+		fi
 		sleep 1
 	done
 	echo "Cast started"
@@ -153,7 +159,7 @@ stop() {
 
 # Return if the Chromecast is playing
 is_playing() {
-	timeout 5 go-chromecast status --device-name "${DEVICE_NAME}" | grep -E "PLAYING|BUFFERING" &> /dev/null
+	timeout 5 go-chromecast status --dns-timeout 5 --device-name "${DEVICE_NAME}" | grep -E "PLAYING|BUFFERING" &> /dev/null
 	return $?
 }
 
@@ -194,10 +200,12 @@ echo ""
 
 if [[ "$(chromecast_ls)" == "" ]]; then
 	echo "Waiting until at least one Chromecast found ..."
-	while [[ "$(chromecast_ls)" == "" ]]; do
+	CHROMECAST_LS=""
+	while [[ "${CHROMECAST_LS}" == "" ]]; do
+		CHROMECAST_LS=$(chromecast_ls)
 		sleep 1
 	done
-	echo "$(chromecast_ls | wc -l | xargs) Chromecast(s) found"
+	echo "$(echo "${CHROMECAST_LS}" | wc -l | xargs) Chromecast(s) found"
 	echo ""
 fi
 
@@ -232,7 +240,7 @@ while true; do
 			echo "Chromecast stopped"
 			break
 		fi
-		sleep 1
+		sleep 2
 	done
 	stop
 done
