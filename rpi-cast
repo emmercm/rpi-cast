@@ -15,6 +15,7 @@ hifiberry() {
 	if [[ "${HIFIBERRY_OVERLAY}" == "" ]]; then
 		return
 	fi
+	echo "Configuring HiFiBerry driver ..."
 
 	sudo sed -i 's/^dtparam=audio=on/# dtparam=audio=on/' /boot/config.txt
 	sudo sed -i '/^dtoverlay=vc4-kms-v3d/d' /boot/config.txt
@@ -23,17 +24,20 @@ hifiberry() {
 	sudo sed -i '/^dtoverlay=hifiberry/d' /boot/config.txt
 	sudo sed -i "1 i\dtoverlay=${HIFIBERRY_OVERLAY}" /boot/config.txt
 
-	sudo tee /etc/asound.conf > /dev/null <<- EOF
-	pcm.!default {
-	  type hw card 0
-	}
-	ctl.!default {
-	  type hw card 0
-	}
+	sudo tee /etc/asound.conf > /dev/null <<-EOF
+		pcm.!default {
+		  type hw card 0
+		}
+		ctl.!default {
+		  type hw card 0
+		}
 	EOF
 	if [[ -f ~/.asound.conf ]]; then
 		rm ~/.asound.conf
 	fi
+
+	echo "Reboot required"
+	echo ""
 }
 
 # apt update singleton alias
@@ -49,7 +53,7 @@ update() {
 # apt install alias
 apt_install() {
 	update
-	echo "Installing $* ..."
+	echo "Installing '$*' ..."
 	sudo apt -y install "$@" > /dev/null
 }
 
@@ -167,6 +171,7 @@ hifiberry
 [[ ! -x "$(command -v mkchromecast)" ]] && apt_install mkchromecast
 [[ ! -x "$(command -v ffmpeg)" ]] && apt_install ffmpeg
 if [[ ! -x "$(command -v go-chromecast)" ]]; then
+	echo "Installing 'go-chromecast' ..."
 	DIR=$(mktemp -d)
 	curl --silent https://api.github.com/repos/vishen/go-chromecast/releases/latest | grep 'browser_download_url' | grep 'armv7' | cut -d ':' -f 2,3 | tr -d \" | xargs -n1 wget -qO - | tar -xzf - -C "${DIR}"
 	sudo install "${DIR}/go-chromecast" /usr/bin/
