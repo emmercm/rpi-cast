@@ -3,6 +3,7 @@ set -euo pipefail
 
 trap 'jobs -p | xargs kill' EXIT
 
+# TODO(cemmer): CLI flags
 DEVICE_NAME=${DEVICE_NAME:-}
 LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
 VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
@@ -198,6 +199,7 @@ fi
 loopback "${LOOPBACK_SINK}"
 echo ""
 
+# TODO(cemmer): let this happen multiple times?
 if [[ "$(chromecast_ls)" == "" ]]; then
 	echo "Waiting until at least one Chromecast found ..."
 	CHROMECAST_LS=""
@@ -213,6 +215,8 @@ DEVICE_NAME=${DEVICE_NAME:-$(chromecast_preferred)}
 
 stop
 while true; do
+	# TODO(cemmer): wait for Chromecast before anything else
+
 	echo "Waiting for input ..."
 	while (( $(echo "$(volume 2) < ${VOLUME_THRESHOLD}" | bc -l) )); do
 		sleep 1
