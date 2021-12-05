@@ -199,7 +199,7 @@ fi
 loopback "${LOOPBACK_SINK}"
 echo ""
 
-# TODO(cemmer): let this happen multiple times?
+# TODO(cemmer): be smarter if device name is provided
 if [[ "$(chromecast_ls)" == "" ]]; then
 	echo "Waiting until at least one Chromecast found ..."
 	CHROMECAST_LS=""
@@ -211,6 +211,7 @@ if [[ "$(chromecast_ls)" == "" ]]; then
 	echo ""
 fi
 
+# TODO(cemmer): let this happen multiple times?
 DEVICE_NAME=${DEVICE_NAME:-$(chromecast_preferred)}
 
 stop
