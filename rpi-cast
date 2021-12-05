@@ -180,6 +180,7 @@ fi
 
 ##### Main program #####
 
+# shellcheck disable=SC2009
 PA_USER=$(ps -Afw | grep "$(which pulseaudio)" | head -1 | awk '{print $1}')
 if [[ "${PA_USER}" != "$(whoami)" ]]; then
 	echo "This script needs to be run by '${PA_USER}'"
