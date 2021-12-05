@@ -133,7 +133,7 @@ loopback() {
 # Start mkchromecast and add a loopback for it
 start() {
 	echo "Casting to '${DEVICE_NAME}' ..."
-	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 ${DEVICE_NAME:+-n "${DEVICE_NAME}"} &> /dev/null &
+	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 ${DEVICE_NAME:+-n "${DEVICE_NAME}"} >> /tmp/mkchromecast.log 2>&1 &
 	loopback Mkchromecast
 	echo "Waiting for cast to start ..."
 	LOOP_TIMEOUT=$((SECONDS+60))
