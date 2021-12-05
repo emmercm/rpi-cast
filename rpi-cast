@@ -3,6 +3,7 @@ set -euo pipefail
 
 trap 'jobs -p | xargs kill' EXIT
 
+# TODO(cemmer): CLI flags
 DEVICE_NAME=${DEVICE_NAME:-}
 LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
 VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
@@ -15,6 +16,7 @@ hifiberry() {
 	if [[ "${HIFIBERRY_OVERLAY}" == "" ]]; then
 		return
 	fi
+	echo "Configuring HiFiBerry driver ..."
 
 	sudo sed -i 's/^dtparam=audio=on/# dtparam=audio=on/' /boot/config.txt
 	sudo sed -i '/^dtoverlay=vc4-kms-v3d/d' /boot/config.txt
@@ -23,17 +25,20 @@ hifiberry() {
 	sudo sed -i '/^dtoverlay=hifiberry/d' /boot/config.txt
 	sudo sed -i "1 i\dtoverlay=${HIFIBERRY_OVERLAY}" /boot/config.txt
 
-	sudo tee /etc/asound.conf > /dev/null <<- EOF
-	pcm.!default {
-	  type hw card 0
-	}
-	ctl.!default {
-	  type hw card 0
-	}
+	sudo tee /etc/asound.conf > /dev/null <<-EOF
+		pcm.!default {
+		  type hw card 0
+		}
+		ctl.!default {
+		  type hw card 0
+		}
 	EOF
 	if [[ -f ~/.asound.conf ]]; then
 		rm ~/.asound.conf
 	fi
+
+	echo "Reboot required"
+	echo ""
 }
 
 # apt update singleton alias
@@ -49,13 +54,13 @@ update() {
 # apt install alias
 apt_install() {
 	update
-	echo "Installing $* ..."
+	echo "Installing '$*' ..."
 	sudo apt -y install "$@" > /dev/null
 }
 
 # List all Chromecast devices
 chromecast_ls() {
-	go-chromecast ls | ansi2txt | grep --invert-match '^error'
+	go-chromecast ls --dns-timeout 5 | ansi2txt | grep --invert-match '^error' || true
 }
 
 DEVICE_KEYWORDS="All
@@ -111,7 +116,9 @@ chromecast_preferred() {
 loopback() {
 	printf "Finding '%s' PulseAudio sink ... " "$1"
 	SINK=""
+	LOOP_TIMEOUT=$((SECONDS+60))
 	while [[ "${SINK}" == "" ]]; do
+		[[ ${SECONDS} -ge ${LOOP_TIMEOUT} ]] && break
 		SINK=$(pactl list short sinks | (grep "$1" || true) | head -1 | awk '{print $1}')
 	done
 	echo "#${SINK}"
@@ -126,10 +133,16 @@ loopback() {
 # Start mkchromecast and add a loopback for it
 start() {
 	echo "Casting to '${DEVICE_NAME}' ..."
-	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 ${DEVICE_NAME:+-n "${DEVICE_NAME}"} &> /dev/null &
+	mkchromecast --encoder-backend ffmpeg --codec wav --sample-rate 192000 ${DEVICE_NAME:+-n "${DEVICE_NAME}"} >> /tmp/mkchromecast.log 2>&1 &
 	loopback Mkchromecast
 	echo "Waiting for cast to start ..."
+	LOOP_TIMEOUT=$((SECONDS+60))
 	while ! is_playing; do
+		if [[ ${SECONDS} -ge ${LOOP_TIMEOUT} ]]; then
+			echo "Waiting for cast timed out"
+			echo ""
+			return 1
+		fi
 		sleep 1
 	done
 	echo "Cast started"
@@ -147,14 +160,14 @@ stop() {
 
 # Return if the Chromecast is playing
 is_playing() {
-	go-chromecast status --device-name "${DEVICE_NAME}" | grep -E "PLAYING|BUFFERING" &> /dev/null
+	timeout 5 go-chromecast status --dns-timeout 5 --device-name "${DEVICE_NAME}" | grep -E "PLAYING|BUFFERING" &> /dev/null
 	return $?
 }
 
 # Get the peak input volume
 # @param {number} $1 Seconds to record to determine peak volume
 volume() {
-	rec -n stat trim 0 "${1:-1}" 2>&1 | grep 'amplitude' | grep --ignore-case 'RMS' | cut -d ':' -f 2 | xargs
+	rec -n stat trim 0 "${1:-1}" 2>&1 | grep 'amplitude' | grep --ignore-case 'RMS' | cut -d ':' -f 2 | xargs || echo 0
 }
 
 
@@ -167,6 +180,7 @@ hifiberry
 [[ ! -x "$(command -v mkchromecast)" ]] && apt_install mkchromecast
 [[ ! -x "$(command -v ffmpeg)" ]] && apt_install ffmpeg
 if [[ ! -x "$(command -v go-chromecast)" ]]; then
+	echo "Installing 'go-chromecast' ..."
 	DIR=$(mktemp -d)
 	curl --silent https://api.github.com/repos/vishen/go-chromecast/releases/latest | grep 'browser_download_url' | grep 'armv7' | cut -d ':' -f 2,3 | tr -d \" | xargs -n1 wget -qO - | tar -xzf - -C "${DIR}"
 	sudo install "${DIR}/go-chromecast" /usr/bin/
@@ -175,7 +189,8 @@ fi
 
 ##### Main program #####
 
-PA_USER=$(pgrep -af "$(which pulseaudio)" | head -1 | awk '{print $1}')
+# shellcheck disable=SC2009
+PA_USER=$(ps -Afw | grep "$(which pulseaudio)" | head -1 | awk '{print $1}')
 if [[ "${PA_USER}" != "$(whoami)" ]]; then
 	echo "This script needs to be run by '${PA_USER}'"
 	exit 1
@@ -184,25 +199,31 @@ fi
 loopback "${LOOPBACK_SINK}"
 echo ""
 
+# TODO(cemmer): be smarter if device name is provided
 if [[ "$(chromecast_ls)" == "" ]]; then
 	echo "Waiting until at least one Chromecast found ..."
-	while [[ "$(chromecast_ls)" == "" ]]; do
+	CHROMECAST_LS=""
+	while [[ "${CHROMECAST_LS}" == "" ]]; do
+		CHROMECAST_LS=$(chromecast_ls)
 		sleep 1
 	done
-	echo "$(chromecast_ls | wc -l | xargs) Chromecast(s) found"
+	echo "$(echo "${CHROMECAST_LS}" | wc -l | xargs) Chromecast(s) found"
 	echo ""
 fi
 
+# TODO(cemmer): let this happen multiple times?
 DEVICE_NAME=${DEVICE_NAME:-$(chromecast_preferred)}
 
 stop
 while true; do
+	# TODO(cemmer): wait for Chromecast before anything else
+
 	echo "Waiting for input ..."
 	while (( $(echo "$(volume 2) < ${VOLUME_THRESHOLD}" | bc -l) )); do
 		sleep 1
 	done
 
-	start
+	start || continue
 
 	SILENCE_DURATION=0
 	while true; do
@@ -220,7 +241,11 @@ while true; do
 			echo "Chromecast stopped"
 			break
 		fi
-		sleep 1
+		if ! pgrep mkchromecast &> /dev/null; then
+			echo "Chromecast stopped"
+			break
+		fi
+		sleep 2
 	done
 	stop
 done
