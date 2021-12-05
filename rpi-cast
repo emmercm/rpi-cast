@@ -59,7 +59,7 @@ apt_install() {
 
 # List all Chromecast devices
 chromecast_ls() {
-	go-chromecast ls --dns-timeout 5 | ansi2txt | grep --invert-match '^error'
+	go-chromecast ls --dns-timeout 5 | ansi2txt | grep --invert-match '^error' || true
 }
 
 DEVICE_KEYWORDS="All
@@ -218,7 +218,7 @@ while true; do
 		sleep 1
 	done
 
-	start
+	start || continue
 
 	SILENCE_DURATION=0
 	while true; do
