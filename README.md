@@ -1,6 +1,6 @@
 # rpi-cast
 
-Automatically cast audio from a Raspberry Pi.
+A tool to automatically cast audio input from a Raspberry Pi.
 
 ## Overview
 
