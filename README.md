@@ -59,7 +59,7 @@ HiFiBerry overlays:
 To have `rpi-cast` automatically start on device boot, add the following to your `/etc/rc.local` file:
 
 ```shell
-# (Optional) log all output to a temp file
+# (Optional) log all /etc/rc.local output to a temp file
 exec &> /tmp/rc.local.log
 set -x
 
