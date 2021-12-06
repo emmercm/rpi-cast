@@ -114,20 +114,22 @@ chromecast_preferred() {
 # Add a PulseAudio loopback if it doesn't already eixst
 # @param {string} $1 PulseAudio sink name
 loopback() {
-	printf "Finding '%s' PulseAudio sink ... " "$1"
-	SINK=""
+	printf "Finding '%s' PulseAudio sink(s) ... " "$1"
+	SINKS=""
 	LOOP_TIMEOUT=$((SECONDS+60))
-	while [[ "${SINK}" == "" ]]; do
+	while [[ "${SINKS}" == "" ]]; do
 		[[ ${SECONDS} -ge ${LOOP_TIMEOUT} ]] && break
-		SINK=$(pactl list short sinks | (grep "$1" || true) | head -1 | awk '{print $1}')
+		SINKS=$(pactl list short sinks | grep "$1" | awk '{print $1}' || true)
 	done
-	echo "#${SINK}"
+	echo "#$(echo "${SINKS}" | tr '\n' ',' | sed 's/,$/\n/')"
 
-	if [[ "$(pactl list short modules | grep module-loopback | grep "sink=${SINK}")" == "" ]]; then
-		printf "Adding loopback for sink #%s ... " "${SINK}"
-		pactl load-module module-loopback latency_msec=1 sink="${SINK}" > /dev/null
-		echo "done"
-	fi
+	for SINK in ${SINKS}; do
+		if [[ "$(pactl list short modules | grep module-loopback | grep "sink=${SINK}")" == "" ]]; then
+			printf "Adding loopback for sink #%s ... " "${SINK}"
+			pactl load-module module-loopback latency_msec=1 sink="${SINK}" > /dev/null
+			echo "done"
+		fi
+	done
 }
 
 # Start mkchromecast and add a loopback for it
