@@ -198,9 +198,6 @@ if [[ "${PA_USER}" != "$(whoami)" ]]; then
 	exit 1
 fi
 
-loopback "${LOOPBACK_SINK}"
-echo ""
-
 # TODO(cemmer): be smarter if device name is provided
 if [[ "$(chromecast_ls)" == "" ]]; then
 	echo "Waiting until at least one Chromecast found ..."
@@ -225,6 +222,9 @@ while true; do
 		sleep 1
 	done
 
+	if [[ "${LOOPBACK_SINK}" != "" ]]; then
+		loopback "${LOOPBACK_SINK}"
+	fi
 	start || continue
 
 	SILENCE_DURATION=0
