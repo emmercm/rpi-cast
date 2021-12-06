@@ -53,3 +53,16 @@ HiFiBerry overlays:
   hifiberry-dacplusadc
   hifiberry-dacplusadcpro
 ```
+
+## Automatic startup
+
+To have `rpi-cast` automatically start on device boot, add the following to your `/etc/rc.local` file:
+
+```shell
+# (Optional) log all output to a temp file
+exec &> /tmp/rc.local.log
+set -x
+
+# Start rpi-cast and log to a temp file
+su pi -c '/home/pi/rpi-cast > /tmp/rpi-cast.log &'
+```
