@@ -3,12 +3,43 @@ set -euo pipefail
 
 trap 'jobs -p | xargs kill' EXIT
 
-# TODO(cemmer): CLI flags
 DEVICE_NAME=${DEVICE_NAME:-}
 LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
 VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
 SILENCE_TIMEOUT=${SILENCE_TIMEOUT:-300}
 HIFIBERRY_OVERLAY=${HIFIBERRY_OVERLAY:-}
+
+# Read CLI arguments
+while [[ $# -gt 1 ]]; do
+	KEY="$1"
+	case ${KEY} in
+		-d|--device-name)
+			DEVICE_NAME=$2
+			shift
+			;;
+		-h|--hifiberry-overlay)
+			HIFIBERRY_OVERLAY=$2
+			shift
+			;;
+		-l|--loopback-sink)
+			LOOPBACK_SINK=$2
+			shift
+			;;
+		-s|--silence-timeout)
+			SILENCE_TIMEOUT=$2
+			shift
+			;;
+		-v|--volume-threshold)
+			VOLUME_THRESHOLD=$2
+			shift
+			;;
+		*)
+			break
+			;;
+	esac
+	shift
+done
+
 
 # Set up HiFiBerry devices
 # @link https://www.hifiberry.com/docs/software/configuring-linux-3-18-x/
