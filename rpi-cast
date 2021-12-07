@@ -205,7 +205,7 @@ start() {
 stop() {
 	if pgrep mkchromecast &> /dev/null; then
 		echo "Stopping cast ..."
-		killall --wait --quiet mkchromecast
+		ps -Afw | grep "$(which mkchromecast)" | grep --invert-match grep | awk '{print $2}' | xargs kill || true
 		echo ""
 	fi
 }
