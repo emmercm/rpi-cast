@@ -207,6 +207,7 @@ start() {
 stop() {
 	if pgrep mkchromecast &> /dev/null; then
 		echo "Stopping cast ..."
+		# shellcheck disable=SC2009
 		ps -Afw | grep "$(which mkchromecast)" | grep --invert-match grep | awk '{print $2}' | xargs kill || true
 		echo ""
 	fi
