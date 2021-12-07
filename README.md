@@ -33,9 +33,13 @@ wget https://raw.githubusercontent.com/emmercm/rpi-cast/main/rpi-cast && chmod +
 Usage: ./rpi-cast [OPTIONS]
 
 Options:
+  -c, --codec string               Audio codec to use
+                                   Options: mp3, ogg, aac, opus, wav, flac
+                                   Default: wav
+
   -d, --device-name string         Chromecast device name (eg. "Living Room TV")
-                                   Optional, defaults to first device found, preferring
-                                      groups over single devices
+                                   Default: the first device found, preferring
+                                    groups over single devices
 
   -h, --hifiberry-overlay string   HiFiBerry overlay to configure
                                    Optional, only needs to be done once

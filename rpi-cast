@@ -3,16 +3,21 @@ set -euo pipefail
 
 trap 'jobs -p | xargs kill' EXIT
 
+CODEC=${CODEC:-wav}
 DEVICE_NAME=${DEVICE_NAME:-}
-LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
-VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
-SILENCE_TIMEOUT=${SILENCE_TIMEOUT:-300}
 HIFIBERRY_OVERLAY=${HIFIBERRY_OVERLAY:-}
+LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
+SILENCE_TIMEOUT=${SILENCE_TIMEOUT:-300}
+VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
 
 # Read CLI arguments
 while [[ $# -gt 1 ]]; do
 	KEY="$1"
 	case ${KEY} in
+		-c|--codec)
+			CODEC=$2
+			shift
+			;;
 		-d|--device-name)
 			DEVICE_NAME=$2
 			shift
@@ -39,6 +44,20 @@ while [[ $# -gt 1 ]]; do
 	esac
 	shift
 done
+
+BITRATE=320
+SAMPLE_RATE=44100
+if [[ "${CODEC}" == @(wav|flac) ]]; then
+	BITRATE=
+fi
+
+SAMPLE_RATE=44100
+if [[ "${CODEC}" == @(aac|wav|flac) ]]; then
+	SAMPLE_RATE=96000
+fi
+
+echo "Quality set to ${CODEC}${BITRATE:+ ${BITRATE}kbps} ${SAMPLE_RATE}Hz"
+echo ""
 
 
 # Set up HiFiBerry devices
