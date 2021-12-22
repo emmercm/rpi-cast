@@ -6,11 +6,12 @@ A tool to automatically cast audio input from a Raspberry Pi.
 
 This tool will:
 
-1. Listen on the default PulseAudio source (eg. a HiFiBerry DAC+ ADC 3.5mm jack)
-2. Upon detecting enough volume (amplitude) (`-v, --volume-threshold`):
+1. Listen on the default PulseAudio source (eg. a HiFiBerry DAC+ ADC 3.5mm jack) (`-i, --input-source`)
+2. Upon detecting enough volume (amplitude) (`-vt, --volume-threshold`):
     1. Create a PulseAudio loopback for each loopback sink (`-l, --loopback-sink`)
     2. Cast to the Chromecast device defined (`-d, --device-name`), or the first one found
-    3. Attempt to keep the cast as long as the silence timeout isn't met (`-s, --silence-timeout`)
+    3. Set the volume for each output sink (`-v, --volume`)
+    4. Attempt to keep the cast as long as the silence timeout isn't met (`-st, --silence-timeout`)
 3. Rinse, repeat!
 
 Here's an example wiring diagram of how a [HiFiBerry DAC+ ADC Pro](https://www.hifiberry.com/shop/boards/hifiberry-dac-adc-pro/) can be used to cast audio from a turntable, as well as loopback output to a receiver:
@@ -44,13 +45,19 @@ Options:
   -h, --hifiberry-overlay string   HiFiBerry overlay to configure
                                    Optional, only needs to be done once
 
-  -l, --loopback-sink string       Pattern for PulseAudio sink to loopback to
+  -i, --input-source string        Pattern for the PulseAudio sources to use
+                                   Default: alsa_input
+
+  -l, --loopback-sink string       Pattern for the PulseAudio sinks to loopback to
                                    Default: alsa_output
 
-  -s, --silence-timeout number     Stop casting after some seconds of silence
+  -st, --silence-timeout number    Stop casting after some seconds of silence
                                    Default: 300
 
-  -v, --volume-threshold number    Minimum volume threshold to start casting
+  -v, --volume number              PulseAudio source volume percentage
+                                   Default: 100
+
+  -vt, --volume-threshold number   Minimum volume threshold to start casting
                                    Default: 0.005
 
 HiFiBerry overlays:

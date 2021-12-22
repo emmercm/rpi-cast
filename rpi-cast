@@ -6,8 +6,10 @@ trap 'jobs -p | xargs kill' EXIT
 CODEC=${CODEC:-wav}
 DEVICE_NAME=${DEVICE_NAME:-}
 HIFIBERRY_OVERLAY=${HIFIBERRY_OVERLAY:-}
+INPUT_SOURCE=${INPUT_SOURCE:-alsa_input}
 LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
 SILENCE_TIMEOUT=${SILENCE_TIMEOUT:-300}
+VOLUME_PERCENTAGE=${VOLUME_PERCENTAGE:-100}
 VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
 
 # Read CLI arguments
@@ -26,15 +28,23 @@ while [[ $# -gt 1 ]]; do
 			HIFIBERRY_OVERLAY=$2
 			shift
 			;;
+		-i|--input-source)
+			INPUT_SOURCE=$2
+			shift
+			;;
 		-l|--loopback-sink)
 			LOOPBACK_SINK=$2
 			shift
 			;;
-		-s|--silence-timeout)
+		-st|--silence-timeout)
 			SILENCE_TIMEOUT=$2
 			shift
 			;;
-		-v|--volume-threshold)
+		-v|--volume)
+			VOLUME_PERCENTAGE=$2
+			shift
+			;;
+		-vt|--volume-threshold)
 			VOLUME_THRESHOLD=$2
 			shift
 			;;
@@ -161,10 +171,10 @@ chromecast_preferred() {
 	fi
 }
 
-# Add a PulseAudio loopback if it doesn't already eixst
-# @param {string} $1 PulseAudio sink name
+# Add PulseAudio loopbacks if they don't already eixst
+# @param {string} $1 PulseAudio sink name pattern
 loopback() {
-	printf "Finding '%s' PulseAudio sink(s) ... " "$1"
+	printf "Finding '%s' PulseAudio sinks ... " "$1"
 	SINKS=""
 	LOOP_TIMEOUT=$((SECONDS+60))
 	while [[ "${SINKS}" == "" ]]; do
@@ -173,10 +183,20 @@ loopback() {
 	done
 	echo "#$(echo "${SINKS}" | tr '\n' ',' | sed 's/,$/\n/')"
 
+	printf "Finding '%s' PulseAudio source ... " "${INPUT_SOURCE}"
+	SOURCE=$(pactl list short sources | grep "${INPUT_SOURCE}" | grep "$1" | awk '{print $1}' || true)
+	echo "#${SOURCE}"
+
 	for SINK in ${SINKS}; do
 		if [[ "$(pactl list short modules | grep module-loopback | grep "sink=${SINK}")" == "" ]]; then
-			printf "Adding loopback for sink #%s ... " "${SINK}"
-			pactl load-module module-loopback latency_msec=1 sink="${SINK}" > /dev/null
+			printf "Adding loopback to sink #%s ... " "${SINK}"
+			pactl load-module module-loopback latency_msec=1 ${SOURCE:+source=${SOURCE}} sink="${SINK}" > /dev/null
+			echo "done"
+		fi
+		VOLUME=$((65536 * VOLUME_PERCENTAGE / 100))
+		if [[ "$(pactl list sinks | grep '^\s\+Volume:' | head -$((SINK + 1)) | tail -1 | awk '{print $3}')" != "${VOLUME}" ]]; then
+			printf "Setting volume to ${VOLUME_PERCENTAGE}%% for sink #%s ... " "${SINK}"
+			pactl set-sink-volume "${SINK}" "${VOLUME}"
 			echo "done"
 		fi
 	done
@@ -184,22 +204,23 @@ loopback() {
 
 # Start mkchromecast and add a loopback for it
 start() {
-	echo "Casting to '${DEVICE_NAME}' ..."
+	printf "Casting to '%s' ... " "${DEVICE_NAME}"
 	mkchromecast --debug --encoder-backend ffmpeg \
 		--port "$(comm -23 <(seq 49152 65535 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -1)" \
 		${CODEC:+--codec "${CODEC}"} ${BITRATE:+--bitrate "${BITRATE}"} ${SAMPLE_RATE:+--sample-rate "${SAMPLE_RATE}"} ${DEVICE_NAME:+--name "${DEVICE_NAME}"} >> /tmp/mkchromecast.log 2>&1 &
+	echo "started"
 	loopback Mkchromecast
-	echo "Waiting for cast to start ..."
+	printf "Waiting for cast to start ... "
 	LOOP_TIMEOUT=$((SECONDS+60))
 	while ! is_playing; do
 		if [[ ${SECONDS} -ge ${LOOP_TIMEOUT} ]]; then
-			echo "Waiting for cast timed out"
+			echo "timed out"
 			echo ""
 			return 1
 		fi
 		sleep 1
 	done
-	echo "Cast started"
+	echo "started"
 	echo ""
 }
 
@@ -222,6 +243,7 @@ is_playing() {
 # Get the peak input volume
 # @param {number} $1 Seconds to record to determine peak volume
 volume() {
+	# TODO(cemmer): respect $INPUT_SOURCE, with `-t pulseaudio (source)`?
 	rec -n stat trim 0 "${1:-1}" 2>&1 | grep 'amplitude' | grep --ignore-case 'RMS' | cut -d ':' -f 2 | xargs || echo 0
 }
 
@@ -259,7 +281,7 @@ if [[ "$(chromecast_ls)" == "" ]]; then
 		CHROMECAST_LS=$(chromecast_ls)
 		sleep 1
 	done
-	echo "$(echo "${CHROMECAST_LS}" | wc -l | xargs) Chromecast(s) found"
+	echo "$(echo "${CHROMECAST_LS}" | wc -l | xargs) Chromecasts found"
 	echo ""
 fi
 
@@ -270,10 +292,11 @@ stop
 while true; do
 	# TODO(cemmer): wait for Chromecast before anything else
 
-	echo "Waiting for input ..."
+	printf "Waiting for input ... "
 	while (( $(echo "$(volume 2) < ${VOLUME_THRESHOLD}" | bc -l) )); do
 		sleep 1
 	done
+	echo "input detected"
 
 	if [[ "${LOOPBACK_SINK}" != "" ]]; then
 		loopback "${LOOPBACK_SINK}"
