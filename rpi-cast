@@ -193,8 +193,8 @@ loopback() {
 			pactl load-module module-loopback latency_msec=1 ${SOURCE:+source=${SOURCE}} sink="${SINK}" > /dev/null
 			echo "done"
 		fi
-		VOLUME=$((65536 * $VOLUME_PERCENTAGE / 100))
-		if [[ "$(pactl list sinks | grep '^\s\+Volume:' | head -$(($SINK + 1)) | tail -1 | awk '{print $3}')" != "${VOLUME}" ]]; then
+		VOLUME=$((65536 * VOLUME_PERCENTAGE / 100))
+		if [[ "$(pactl list sinks | grep '^\s\+Volume:' | head -$((SINK + 1)) | tail -1 | awk '{print $3}')" != "${VOLUME}" ]]; then
 			printf "Setting volume to ${VOLUME_PERCENTAGE}%% for sink #%s ... " "${SINK}"
 			pactl set-sink-volume "${SINK}" "${VOLUME}"
 			echo "done"
