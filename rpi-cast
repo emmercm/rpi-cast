@@ -243,6 +243,7 @@ is_playing() {
 # Get the peak input volume
 # @param {number} $1 Seconds to record to determine peak volume
 volume() {
+	# TODO(cemmer): respect $INPUT_SOURCE, with `-t pulseaudio (source)`?
 	rec -n stat trim 0 "${1:-1}" 2>&1 | grep 'amplitude' | grep --ignore-case 'RMS' | cut -d ':' -f 2 | xargs || echo 0
 }
 
