@@ -6,10 +6,10 @@ A tool to automatically cast audio input from a Raspberry Pi.
 
 This tool will:
 
-1. Listen on the default PulseAudio source (eg. a HiFiBerry DAC+ ADC 3.5mm jack) (`-i, --input-source`)
+1. Listen on the defined PulseAudio source (eg. a HiFiBerry DAC+ ADC 3.5mm jack) (`-i, --input-source`)
 2. Upon detecting enough volume (amplitude) (`-vt, --volume-threshold`):
-    1. Create a PulseAudio loopback for each loopback sink (`-l, --loopback-sink`)
     2. Cast to the Chromecast device defined (`-d, --device-name`), or the first one found
+    1. Create a loopback for each defined PulseAudio loopback sink (eg. the HiFiBerry DAC+ ADC RCA jacks) (`-l, --loopback-sink`)
     3. Set the volume for each output sink (`-v, --volume`)
     4. Attempt to keep the cast as long as the silence timeout isn't met (`-st, --silence-timeout`)
 3. Rinse, repeat!
@@ -63,6 +63,32 @@ Options:
 HiFiBerry overlays:
   hifiberry-dacplusadc
   hifiberry-dacplusadcpro
+```
+
+### Examples
+
+Set up the drivers for a new HiFiBerry device (only needs to be done once), and start casting to the first device found:
+
+```shell
+./rpi-cast -h 'hifiberry-dacplusadcpro'
+```
+
+Cast to the entire house:
+
+```shell
+./rpi-cast -d 'Entire House'
+```
+
+Cast to a specific Chromecast with boosted volume:
+
+```shell
+./rpi-cast -d 'Living Room TV' -v 125
+```
+
+Cast with a lossy codec to reduce bandwidth:
+
+```shell
+./rpi-cast -c mp3 -b 256
 ```
 
 ## Automatic startup
