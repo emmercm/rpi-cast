@@ -8,8 +8,8 @@ This tool will:
 
 1. Listen on the defined PulseAudio source (eg. a HiFiBerry DAC+ ADC 3.5mm jack) (`-i, --input-source`)
 2. Upon detecting enough volume (amplitude) (`-vt, --volume-threshold`):
-    2. Cast to the Chromecast device defined (`-d, --device-name`), or the first one found
     1. Create a loopback for each defined PulseAudio loopback sink (eg. the HiFiBerry DAC+ ADC RCA jacks) (`-l, --loopback-sink`)
+    2. Cast to the Chromecast device defined (`-d, --device-name`) or the first one found, with the defined bitrate (`-b, --bitrate`) and sample rate (`-s, --sample-rate`)
     3. Set the volume for each output sink (`-v, --volume`)
     4. Attempt to keep the cast as long as the silence timeout isn't met (`-st, --silence-timeout`)
 3. Rinse, repeat!
@@ -33,15 +33,32 @@ wget https://raw.githubusercontent.com/emmercm/rpi-cast/main/rpi-cast && chmod +
 ```text
 Usage: ./rpi-cast [OPTIONS]
 
-Options:
-  -c, --codec string               Audio codec to use
-                                   Options: mp3, ogg, aac, opus, wav, flac
-                                   Default: wav
-
+Cast options:
   -d, --device-name string         Chromecast device name (eg. "Living Room TV")
                                    Default: the first device found, preferring
                                     groups over single devices
 
+  -v, --volume number              Output volume percentage (can can exceed 100)
+                                   Default: 100
+
+  -st, --silence-timeout number    Stop casting after some seconds of silence
+                                   Default: 300
+
+  -vt, --volume-threshold number   Minimum volume threshold to start casting
+                                   Default: 0.005
+
+Quality options:
+  -b, --bitrate string             Bitrate to use in kbps
+                                   Default: 320 if not WAV/FLAC
+
+  -c, --codec string               Audio codec to use
+                                   Options: mp3, ogg, aac, opus, wav, flac
+                                   Default: wav
+
+  -s, --sample-rate string         Sample rate to use in Hz
+                                   Default: 96000 if AAC/WAV/FLAC, otherwise 44100
+
+Other options:
   -h, --hifiberry-overlay string   HiFiBerry overlay to configure
                                    Optional, only needs to be done once
 
@@ -50,15 +67,6 @@ Options:
 
   -l, --loopback-sink string       Pattern for the PulseAudio sinks to loopback to
                                    Default: alsa_output
-
-  -st, --silence-timeout number    Stop casting after some seconds of silence
-                                   Default: 300
-
-  -v, --volume number              PulseAudio source volume percentage
-                                   Default: 100
-
-  -vt, --volume-threshold number   Minimum volume threshold to start casting
-                                   Default: 0.005
 
 HiFiBerry overlays:
   hifiberry-dacplusadc

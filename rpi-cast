@@ -3,19 +3,25 @@ set -euo pipefail
 
 trap 'jobs -p | xargs kill' EXIT
 
-CODEC=${CODEC:-wav}
-DEVICE_NAME=${DEVICE_NAME:-}
-HIFIBERRY_OVERLAY=${HIFIBERRY_OVERLAY:-}
-INPUT_SOURCE=${INPUT_SOURCE:-alsa_input}
-LOOPBACK_SINK=${LOOPBACK_SINK:-alsa_output}
-SILENCE_TIMEOUT=${SILENCE_TIMEOUT:-300}
-VOLUME_PERCENTAGE=${VOLUME_PERCENTAGE:-100}
-VOLUME_THRESHOLD=${VOLUME_THRESHOLD:-0.005}
+BITRATE=320
+CODEC=wav
+DEVICE_NAME=
+HIFIBERRY_OVERLAY=
+INPUT_SOURCE=alsa_input
+LOOPBACK_SINK=alsa_output
+SAMPLE_RATE=44100
+SILENCE_TIMEOUT=300
+VOLUME_PERCENTAGE=100
+VOLUME_THRESHOLD=0.005
 
 # Read CLI arguments
 while [[ $# -gt 1 ]]; do
 	KEY="$1"
 	case ${KEY} in
+		-b|--bitrate)
+			BITRATE=$2
+			shift
+			;;
 		-c|--codec)
 			CODEC=$2
 			shift
@@ -34,6 +40,10 @@ while [[ $# -gt 1 ]]; do
 			;;
 		-l|--loopback-sink)
 			LOOPBACK_SINK=$2
+			shift
+			;;
+		-s|--sample-rate)
+			SAMPLE_RATE=$2
 			shift
 			;;
 		-st|--silence-timeout)
@@ -55,15 +65,12 @@ while [[ $# -gt 1 ]]; do
 	shift
 done
 
-BITRATE=320
-SAMPLE_RATE=44100
 if [[ "${CODEC}" == @(wav|flac) ]]; then
 	BITRATE=
 fi
 
-SAMPLE_RATE=44100
 if [[ "${CODEC}" == @(aac|wav|flac) ]]; then
-	SAMPLE_RATE=96000
+	SAMPLE_RATE=${SAMPLE_RATE:-96000}
 fi
 
 echo "Quality set to ${CODEC}${BITRATE:+ ${BITRATE}kbps} ${SAMPLE_RATE}Hz"
@@ -197,6 +204,8 @@ loopback() {
 			printf "   Adding loopback to sink #%s ... " "${SINK}"
 			pactl load-module module-loopback latency_msec=1 ${SOURCE:+source=${SOURCE}} sink="${SINK}" > /dev/null
 			echo "done"
+		else
+			echo "   Loopback exists for sink #${SINK}"
 		fi
 		VOLUME=$((65536 * VOLUME_PERCENTAGE / 100))
 		if [[ "$(pactl list sinks | grep '^\s\+Volume:' | head -$((SINK + 1)) | tail -1 | awk '{print $3}')" != "${VOLUME}" ]]; then
