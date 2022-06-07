@@ -174,7 +174,8 @@ chromecast_preferred() {
 # Add PulseAudio loopbacks if they don't already eixst
 # @param {string} $1 PulseAudio sink name pattern
 loopback() {
-	printf "Finding '%s' PulseAudio sinks ... " "$1"
+	echo "Ensuring loopback exists for sink '$1'"
+	printf "   Finding '%s' PulseAudio sink(s) ... " "$1"
 	SINKS=""
 	LOOP_TIMEOUT=$((SECONDS+60))
 	while [[ "${SINKS}" == "" ]]; do
@@ -183,19 +184,23 @@ loopback() {
 	done
 	echo "#$(echo "${SINKS}" | tr '\n' ',' | sed 's/,$/\n/')"
 
-	printf "Finding '%s' PulseAudio source ... " "${INPUT_SOURCE}"
-	SOURCE=$(pactl list short sources | grep "${INPUT_SOURCE}" | grep "$1" | awk '{print $1}' || true)
-	echo "#${SOURCE}"
+	printf "   Finding '%s' PulseAudio source ... " "${INPUT_SOURCE}"
+	SOURCE=$(pactl list short sources | grep "${INPUT_SOURCE}" | awk '{print $1}' || true)
+	if [[ "${SOURCE}" != "" ]]; then
+		echo "#${SOURCE}"
+	else
+		echo "not found!"
+	fi
 
 	for SINK in ${SINKS}; do
 		if [[ "$(pactl list short modules | grep module-loopback | grep "sink=${SINK}")" == "" ]]; then
-			printf "Adding loopback to sink #%s ... " "${SINK}"
+			printf "   Adding loopback to sink #%s ... " "${SINK}"
 			pactl load-module module-loopback latency_msec=1 ${SOURCE:+source=${SOURCE}} sink="${SINK}" > /dev/null
 			echo "done"
 		fi
 		VOLUME=$((65536 * VOLUME_PERCENTAGE / 100))
 		if [[ "$(pactl list sinks | grep '^\s\+Volume:' | head -$((SINK + 1)) | tail -1 | awk '{print $3}')" != "${VOLUME}" ]]; then
-			printf "Setting volume to ${VOLUME_PERCENTAGE}%% for sink #%s ... " "${SINK}"
+			printf "   Setting volume to ${VOLUME_PERCENTAGE}%% for sink #%s ... " "${SINK}"
 			pactl set-sink-volume "${SINK}" "${VOLUME}"
 			echo "done"
 		fi
