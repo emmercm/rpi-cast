@@ -204,6 +204,8 @@ loopback() {
 			printf "   Adding loopback to sink #%s ... " "${SINK}"
 			pactl load-module module-loopback latency_msec=1 ${SOURCE:+source=${SOURCE}} sink="${SINK}" > /dev/null
 			echo "done"
+		else
+			echo "   Loopback exists for sink #${SINK}"
 		fi
 		VOLUME=$((65536 * VOLUME_PERCENTAGE / 100))
 		if [[ "$(pactl list sinks | grep '^\s\+Volume:' | head -$((SINK + 1)) | tail -1 | awk '{print $3}')" != "${VOLUME}" ]]; then
