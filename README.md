@@ -48,14 +48,14 @@ Cast options:
                                    Default: 0.005
 
 Quality options:
-  -b, --bitrate string             Bitrate to use in kbps
+  -b, --bitrate number             Bitrate to use in kbps
                                    Default: 320 if not WAV/FLAC
 
   -c, --codec string               Audio codec to use
                                    Options: mp3, ogg, aac, opus, wav, flac
                                    Default: wav
 
-  -s, --sample-rate string         Sample rate to use in Hz
+  -s, --sample-rate number         Sample rate to use in Hz
                                    Default: 96000 if AAC/WAV/FLAC, otherwise 44100
 
 Other options:
@@ -103,7 +103,7 @@ Cast with a lossy codec to reduce bandwidth:
 
 To have `rpi-cast` automatically start on device boot, add the following to your `/etc/rc.local` file:
 
-```shell
+```bash
 # (Optional) log all /etc/rc.local output to a temp file
 exec &> /tmp/rc.local.log
 set -x
