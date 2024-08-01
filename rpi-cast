@@ -282,6 +282,7 @@ fi
 
 ##### Main program #####
 
+# shellcheck disable=SC2009
 ps axo pid,command | grep -v grep | grep --quiet pulseaudio || (
 	echo "Starting pulseaudio ..."
 	pulseaudio -D
