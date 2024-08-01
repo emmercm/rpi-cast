@@ -244,6 +244,7 @@ stop() {
 		echo "Stopping cast ..."
 		# shellcheck disable=SC2009
 		ps -Afw | grep "$(which mkchromecast)" | grep --invert-match grep | awk '{print $2}' | xargs kill || true
+		pactl list short modules | grep module-null-sink | grep --ignore-case mkchromecast | awk '{print $1}' | xargs pactl unload-module &> /dev/null || true
 		echo ""
 	fi
 }
@@ -266,6 +267,7 @@ volume() {
 
 hifiberry
 
+[[ ! -x "$(command -v bc)" ]] && apt_install bc
 [[ ! -x "$(command -v pactl)" ]] && apt_install pulseaudio-utils
 [[ ! -x "$(command -v rec)" ]] && apt_install sox
 [[ ! -x "$(command -v mkchromecast)" ]] && apt_install mkchromecast
@@ -279,6 +281,12 @@ fi
 [[ ! -x "$(command -v ansi2txt)" ]] && apt_install colorized-logs
 
 ##### Main program #####
+
+# shellcheck disable=SC2009
+ps axo pid,command | grep -v grep | grep --quiet pulseaudio || (
+	echo "Starting pulseaudio ..."
+	pulseaudio -D
+)
 
 # shellcheck disable=SC2009
 PA_USER=$(ps -Afw | grep "$(which pulseaudio)" | head -1 | awk '{print $1}')
@@ -306,16 +314,19 @@ stop
 while true; do
 	# TODO(cemmer): wait for Chromecast before anything else
 
-	printf "Waiting for input ... "
+	printf "Waiting for input ..."
 	while (( $(echo "$(volume 2) < ${VOLUME_THRESHOLD}" | bc -l) )); do
+		printf "."
 		sleep 1
 	done
-	echo "input detected"
+	echo " input detected"
 
 	if [[ "${LOOPBACK_SINK}" != "" ]]; then
 		loopback "${LOOPBACK_SINK}"
 	fi
 	start || continue
+
+	printf "Audio is playing ..."
 
 	SILENCE_DURATION=0
 	while true; do
@@ -325,18 +336,20 @@ while true; do
 			SILENCE_DURATION=0
 		fi
 		if [[ ${SILENCE_DURATION} -ge ${SILENCE_TIMEOUT} ]]; then
-			echo "Input stopped"
+			echo " input stopped"
 			break
 		fi
 
 		if ! is_playing; then
-			echo "Chromecast stopped"
+			echo " Chromecast stopped"
 			break
 		fi
 		if ! pgrep mkchromecast &> /dev/null; then
-			echo "Chromecast stopped"
+			echo " Chromecast stopped"
 			break
 		fi
+
+		printf "."
 		sleep 2
 	done
 	stop
